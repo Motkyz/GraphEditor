@@ -56,6 +56,7 @@ namespace GraphEditor
                     case "Обход графа в ширину":
                         if (_firstSelectedNode == null)
                         {
+                            ResetModes();
                             LogUpd("Для начала выберите начальный узел");
                             _FirstNodeSelecting = true;
                         }
@@ -70,6 +71,7 @@ namespace GraphEditor
                     case "Обход графа в глубину":
                         if (_firstSelectedNode == null)
                         {
+                            ResetModes();
                             LogUpd("Для начала выберите начальный узел");
                             _FirstNodeSelecting = true;
                         }
@@ -84,6 +86,7 @@ namespace GraphEditor
                     case "Поиск максимального потока":
                         if (_firstSelectedNode == null || _secondSelectedNode == null)
                         {
+                            ResetModes();
                             LogUpd("Для начала выберите два узла");
                             LogUpd("Выберите начальный узел");
                             SelectTwoNodes();
@@ -100,6 +103,7 @@ namespace GraphEditor
                     case "Построение остовного дерева":
                         if (_firstSelectedNode == null)
                         {
+                            ResetModes();
                             LogUpd("Для начала выберите начальный узел");
                             _FirstNodeSelecting = true;
                         }
@@ -115,6 +119,7 @@ namespace GraphEditor
                     case "Поиск кратчайшего пути":
                         if (_firstSelectedNode == null || _secondSelectedNode == null)
                         {
+                            ResetModes();
                             LogUpd("Для начала выберите два узла");
                             LogUpd("Выберите начальный узел");
                             SelectTwoNodes();
