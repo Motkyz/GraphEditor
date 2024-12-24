@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -9,11 +10,14 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using GraphEditor.GraphElements;
+using Microsoft.Win32;
 
 namespace GraphEditor
 {
     public partial class MainWindow : Window
     {
+        CancellationTokenSource? _cancellationTokenSource;
+
         public string? FilePath;
 
         private Graph _graph = new Graph();
@@ -35,6 +39,8 @@ namespace GraphEditor
         private bool _SecondNodeSelecting;
         private bool _FirstNodeSelecting;
 
+        private bool _InExecuting;
+
         private string _SelectedAlgorithm;
 
         public MainWindow()
@@ -44,10 +50,11 @@ namespace GraphEditor
 
         private async void StartAlgorithm_Click(object sender, RoutedEventArgs e)
         {
+            _cancellationTokenSource = new CancellationTokenSource();
             logs.Clear();
             logTxt.Text = string.Empty;
             _SelectedAlgorithm = Algorithms.Text;
-            ResetColors();
+            ResetGraph();
 
             try
             {
@@ -57,80 +64,90 @@ namespace GraphEditor
                         if (_firstSelectedNode == null)
                         {
                             ResetModes();
-                            LogUpd("Для начала выберите начальный узел");
+                            LogUpd("Для начала выберите начальный узел:");
                             _FirstNodeSelecting = true;
                         }
                         else
                         {
-                            var widthTraveler = new Traveler(_graph, LogUpd, HighlightNode, HighlightEdge);
+                            _InExecuting = true;
+                            var widthTraveler = new Traveler(_graph, LogUpd, HighlightNode, HighlightEdge, _cancellationTokenSource);
                             await widthTraveler.WidthTravel(_firstSelectedNode);
                             _firstSelectedNode = null;
                             ResetModes();
+                            _InExecuting = false;
                         }
                         break;
                     case "Обход графа в глубину":
                         if (_firstSelectedNode == null)
                         {
                             ResetModes();
-                            LogUpd("Для начала выберите начальный узел");
+                            LogUpd("Для начала выберите начальный узел:");
                             _FirstNodeSelecting = true;
                         }
                         else
                         {
-                            var depthTraveler = new Traveler(_graph, LogUpd, HighlightNode, HighlightEdge);
+                            _InExecuting = true;
+                            var depthTraveler = new Traveler(_graph, LogUpd, HighlightNode, HighlightEdge, _cancellationTokenSource);
                             await depthTraveler.DepthTravel(_firstSelectedNode);
                             _firstSelectedNode = null;
                             ResetModes();
+                            _InExecuting = false;
                         }
                         break;
                     case "Поиск максимального потока":
                         if (_firstSelectedNode == null || _secondSelectedNode == null)
                         {
                             ResetModes();
-                            LogUpd("Для начала выберите два узла");
-                            LogUpd("Выберите начальный узел");
+                            LogUpd("Для начала выберите два узла:");
+                            LogUpd("Выберите начальный узел:");
                             SelectTwoNodes();
                         }
                         else
                         {
-                            var maxFlowSearcher = new MaxFlowSearcher(_graph, _firstSelectedNode.Id-1, _secondSelectedNode.Id-1, LogUpd, HighlightNode, HighlightEdge);
-                            await maxFlowSearcher.Initialize();
+                            _InExecuting = true;
+                            var maxFlowSearcher = new MaxFlowSearcher(_graph, _firstSelectedNode, _secondSelectedNode, LogUpd, HighlightNode, HighlightEdge, _cancellationTokenSource);
+                            await maxFlowSearcher.FordFulkerson();
                             _firstSelectedNode = null;
                             _secondSelectedNode = null;
                             ResetModes();
+                            _InExecuting = false;
                         }
                         break;
                     case "Построение остовного дерева":
                         if (_firstSelectedNode == null)
                         {
                             ResetModes();
-                            LogUpd("Для начала выберите начальный узел");
+                            LogUpd("Для начала выберите начальный узел:");
                             _FirstNodeSelecting = true;
                         }
                         else
                         {
-                            var spanningTreeBuilder = new SpanningTreeBuilder(_graph, LogUpd, HighlightNode, HighlightEdge);
+                            _InExecuting = true;
+                            var spanningTreeBuilder = new SpanningTreeBuilder(_graph, LogUpd, HighlightNode, HighlightEdge, _cancellationTokenSource);
                             await spanningTreeBuilder.PrimAlgorithm(_firstSelectedNode);
                             GraphDrawer.DrawGraph(_graph, canva);
                             _firstSelectedNode = null;
                             ResetModes();
+                            _InExecuting = false;
                         }
                         break;
                     case "Поиск кратчайшего пути":
                         if (_firstSelectedNode == null || _secondSelectedNode == null)
                         {
                             ResetModes();
-                            LogUpd("Для начала выберите два узла");
-                            LogUpd("Выберите начальный узел");
+                            LogUpd("Для начала выберите два узла:");
+                            LogUpd("Выберите начальный узел:");
                             SelectTwoNodes();
                         }
                         else
                         {
-                            var shortestPathSearcher = new ShortestPathSearcher(_graph, _firstSelectedNode, _secondSelectedNode, LogUpd, HighlightNode, HighlightEdge);
+                            _InExecuting = true;
+                            var shortestPathSearcher = new ShortestPathSearcher(_graph, _firstSelectedNode, _secondSelectedNode, LogUpd, HighlightNode, HighlightEdge, _cancellationTokenSource);
                             await shortestPathSearcher.Initialize();
                             _firstSelectedNode = null;
                             _secondSelectedNode = null;
                             ResetModes();
+                            _InExecuting = false;
                         }
                         break;
                     default:
@@ -138,6 +155,7 @@ namespace GraphEditor
                         break;
                 }
             }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 MessageBox.Show("Произошла ошибка, попробуйте снова\n" + ex);
@@ -172,7 +190,7 @@ namespace GraphEditor
                     LogUpd($"Начальный узел - [{_firstSelectedNode}]");
                     if (_SelectingTwoNodes) 
                     {
-                        LogUpd("Выберите конечный узел");
+                        LogUpd("Выберите конечный узел:");
                         _SecondNodeSelecting = true;
                     }
                     else 
@@ -185,37 +203,40 @@ namespace GraphEditor
 
         private void canvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (_AddingNodeMode)
+            if (!_InExecuting)
             {
-                MouseDown_AddNode(sender, e);
-            }
-            else if (_RemovingNodeMode)
-            {
-                MouseDown_RemoveNode(sender, e);
-            }
-            else if (_MovingNodeMode)
-            {
-                MouseDown_MoveNode(sender, e);
-            }
-            else if (_AddingEdgeMode)
-            {
-                MouseDown_AddEdge(sender, e);
-            }
-            else if (_RemovingEdgeMode)
-            {
-                MouseDown_RemoveEdge(sender, e);
-            }
-            else if (_ChangingValue)
-            {
-                MouseDown_ChangeValue(sender, e);
-            }
-            else if (_SecondNodeSelecting)
-            {
-                Canvas_MouseDown_ChooseNode(sender, e);
-            }
-            else if (_FirstNodeSelecting)
-            {
-                Canvas_MouseDown_ChooseNode(sender, e);
+                if (_AddingNodeMode)
+                {
+                    MouseDown_AddNode(sender, e);
+                }
+                else if (_RemovingNodeMode)
+                {
+                    MouseDown_RemoveNode(sender, e);
+                }
+                else if (_MovingNodeMode)
+                {
+                    MouseDown_MoveNode(sender, e);
+                }
+                else if (_AddingEdgeMode)
+                {
+                    MouseDown_AddEdge(sender, e);
+                }
+                else if (_RemovingEdgeMode)
+                {
+                    MouseDown_RemoveEdge(sender, e);
+                }
+                else if (_ChangingValue)
+                {
+                    MouseDown_ChangeValue(sender, e);
+                }
+                else if (_SecondNodeSelecting)
+                {
+                    Canvas_MouseDown_ChooseNode(sender, e);
+                }
+                else if (_FirstNodeSelecting)
+                {
+                    Canvas_MouseDown_ChooseNode(sender, e);
+                }
             }
         }
 
@@ -331,9 +352,6 @@ namespace GraphEditor
             if (_firstSelectedNode == null)
             {
                 _firstSelectedNode = selectedNode;
-
-                // Подсвечиваем узел
-                //HighlightNode(selectedNode, "#1F33B4");
             }
             else
             {
@@ -357,10 +375,6 @@ namespace GraphEditor
                 // Добавляем ребро с заданным весом
                 _graph.Edges.Add(new Edge(_firstSelectedNode, selectedNode, value));
 
-                // Сбрасываем подсветку узла
-                //ResetHighlightedNode();
-
-                // Перерисовываем граф
                 GraphDrawer.DrawGraph(_graph, canva);
 
                 _firstSelectedNode = null;
@@ -457,28 +471,6 @@ namespace GraphEditor
             }
         }
 
-        //Блок выбора двух узлов, а не одного
-        private async void MouseDown_TwoNodesSelecting(object sender, MouseButtonEventArgs e)
-        {
-            var position = e.GetPosition(canva);
-
-            LogUpd("Выберите первую ноду");
-            //Находим узел
-            _secondSelectedNode = _graph.Nodes.FirstOrDefault(n =>
-                position.X >= n.Position.X - 15 && position.X <= n.Position.X + 15 &&
-                position.Y >= n.Position.Y - 15 && position.Y <= n.Position.Y + 15)!;
-
-            if (_firstSelectedNode == null)
-            {
-                _firstSelectedNode = _secondSelectedNode;
-                LogUpd("Выберите вторую ноду");
-            }
-            else if (_secondSelectedNode != _firstSelectedNode)
-            {
-                await SelectedAlgorithmExecute();
-            }
-        }
-
         private void ResetModes()
         {
             _AddingNodeMode = false;
@@ -499,28 +491,26 @@ namespace GraphEditor
             ChangeEdgeValue.IsChecked = false;
         }
 
-        private void ResetColors()
+        private void ResetGraph()
         {
             foreach (Node n in _graph.Nodes)
             {
                 HighlightNode(n, Node.DefaultColor);
+                n.TextBlockDistance.Text = "";
             }
             foreach (Edge e in _graph.Edges)
             {
+                e.Value = e.Value.Split('/')[0];
+                e.TextBlock.Foreground = Edge.DefaultColor;
                 HighlightEdge(e, Edge.DefaultColor);
             }
-        }
-
-        private async Task SelectedAlgorithmExecute()
-        {
-            //await FordFulkersonAlgorithm(_firstSelectedNode, _secondSelectedNode, _graph);
         }
 
         private void SaveGraph_Click(object sender, RoutedEventArgs e)
         {
             ResetModes();
 
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            SaveFileDialog openFileDialog = new()
             {
                 Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
                 Title = "Сохранить граф"
@@ -528,6 +518,7 @@ namespace GraphEditor
 
             if (openFileDialog.ShowDialog() == true)
             {
+                _cancellationTokenSource?.Cancel();
                 try
                 {
                     FilePath = openFileDialog.FileName;
@@ -544,7 +535,7 @@ namespace GraphEditor
         {
             ResetModes();
 
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            OpenFileDialog openFileDialog = new ()
             {
                 Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
                 Title = "Загрузить граф"
@@ -552,6 +543,7 @@ namespace GraphEditor
 
             if (openFileDialog.ShowDialog() == true)
             {
+                _cancellationTokenSource?.Cancel();
                 try
                 {
                     FilePath = openFileDialog.FileName;
@@ -567,7 +559,7 @@ namespace GraphEditor
 
         private void ClearGraph_Click(object sender, RoutedEventArgs e)
         {
-            ResetModes();
+            Cansel_Click(sender, e);
             _graph = new Graph();
             GraphDrawer.DrawGraph(_graph, canva);
         }
@@ -581,22 +573,6 @@ namespace GraphEditor
         private void HighlightEdge(Edge edge, Brush color)
         {
             edge.Color = color;
-            GraphDrawer.DrawGraph(_graph, canva);
-        }
-
-        private void ResetGraph()
-        {
-            foreach (Node node in _graph.Nodes)
-            {
-                HighlightNode(node, Node.DefaultColor);
-                node.TextBlockDistance.Text = "";
-            }
-
-            foreach (Edge edge in _graph.Edges)
-            {
-                HighlightEdge(edge, Edge.DefaultColor);
-            }
-
             GraphDrawer.DrawGraph(_graph, canva);
         }
 
@@ -639,6 +615,15 @@ namespace GraphEditor
             double dy = py - yy;
 
             return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        private void Cansel_Click(object sender, RoutedEventArgs e)
+        {
+            _cancellationTokenSource?.Cancel();
+            _InExecuting = false;
+            _firstSelectedNode = null;
+            _secondSelectedNode = null;
+            ResetModes();
         }
     }
 }

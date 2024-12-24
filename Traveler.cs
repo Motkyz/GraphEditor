@@ -12,17 +12,21 @@ namespace GraphEditor
 {
     public class Traveler : MainWindow
     {
+        CancellationTokenSource? _cancellationTokenSource;
+
         private Graph _graph;
         private Action<string> LogUpd;
         private Action<Node, Brush> HighlightNode;
         private Action<Edge, Brush> HighlightEdge;
 
-        public Traveler(Graph graph, Action<string> logUpd, Action<Node, Brush> highlightNode, Action<Edge, Brush> highlightEdge)
+        public Traveler(Graph graph, Action<string> logUpd, Action<Node, Brush> highlightNode, Action<Edge, Brush> highlightEdge,
+            CancellationTokenSource cancellationToken)
         {
             _graph = graph;
             LogUpd = logUpd;
             HighlightNode = highlightNode;
             HighlightEdge = highlightEdge;
+            _cancellationTokenSource = cancellationToken;
         }
 
         public async Task DepthTravel(Node start)
@@ -48,6 +52,7 @@ namespace GraphEditor
 
                     foreach (var edge in _graph.Edges)
                     {
+                        _cancellationTokenSource!.Token.ThrowIfCancellationRequested();
                         if (edge.FirstNode == currentNode || edge.SecondNode == currentNode)
                         {
                             Node neighbor = edge.FirstNode == currentNode ? edge.SecondNode : edge.FirstNode;
@@ -89,6 +94,7 @@ namespace GraphEditor
 
                     foreach (var edge in _graph.Edges)
                     {
+                        _cancellationTokenSource!.Token.ThrowIfCancellationRequested();
                         if (edge.FirstNode == currentNode || edge.SecondNode == currentNode)
                         {
                             Node neighbor = edge.FirstNode == currentNode ? edge.SecondNode : edge.FirstNode;

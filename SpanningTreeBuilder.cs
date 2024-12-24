@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
 
@@ -10,17 +11,21 @@ namespace GraphEditor
 {
     public class SpanningTreeBuilder : MainWindow
     {
+        CancellationTokenSource? _cancellationTokenSource;
+
         private Graph _graph;
         private Action<string> LogUpd;
         private Action<Node, Brush> HighlightNode;
         private Action<Edge, Brush> HighlightEdge;
 
-        public SpanningTreeBuilder(Graph graph, Action<string> logUpd, Action<Node, Brush> highlightNode, Action<Edge, Brush> highlightEdge)
+        public SpanningTreeBuilder(Graph graph, Action<string> logUpd, Action<Node, Brush> highlightNode, Action<Edge, Brush> highlightEdge, 
+            CancellationTokenSource cancellationToken)
         {
             _graph = graph;
             LogUpd = logUpd;
             HighlightNode = highlightNode;
             HighlightEdge = highlightEdge;
+            _cancellationTokenSource = cancellationToken;
         }
 
         public async Task PrimAlgorithm(Node start)
@@ -61,6 +66,7 @@ namespace GraphEditor
                             HighlightNode(notUsedEdges[i].FirstNode, Node.ActiveColorLvl2);
                         }
                         LogUpd($"Смотрим ребро между узлами [{notUsedEdges[i].FirstNode}] и [{notUsedEdges[i].SecondNode}], его вес {notUsedEdges[i].Value}, запомним его");
+                        _cancellationTokenSource!.Token.ThrowIfCancellationRequested();
                         await Task.Delay(1000);
 
                         if (minEdgeVal == -1)
@@ -71,7 +77,7 @@ namespace GraphEditor
                         {
                             minEdgeVal = i;
                         }
-
+                        _cancellationTokenSource!.Token.ThrowIfCancellationRequested();
                         await Task.Delay(1000);
 
                         HighlightEdge(notUsedEdges[i], Edge.SelectColorLvl2);
@@ -79,6 +85,7 @@ namespace GraphEditor
                 }
 
                 LogUpd($"\nМинимальное ребро - ребро между узлами [{notUsedEdges[minEdgeVal].FirstNode.Id}] и [{notUsedEdges[minEdgeVal].SecondNode.Id}] с весом {notUsedEdges[minEdgeVal].Value}, помечаем его");
+                
                 HighlightEdge(notUsedEdges[minEdgeVal], Edge.SelectColor);
                 await Task.Delay(1000);
 
@@ -115,6 +122,7 @@ namespace GraphEditor
             foreach (var edge in notUsedEdges)
             {
                 HighlightEdge(edge, Edge.UnActiveColor);
+                edge.TextBlock.Foreground = Edge.UnActiveColor;
             }
 
             LogUpd("Алгоритм Прима завершён\n");

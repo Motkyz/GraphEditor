@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -12,6 +13,8 @@ namespace GraphEditor
 {
     public class ShortestPathSearcher
     {
+        CancellationTokenSource? _cancellationTokenSource;
+
         private Graph _graph;
         private Action<string> LogUpd;
         private Action<Node, Brush> HighlightNode;
@@ -23,7 +26,8 @@ namespace GraphEditor
         private Node End;
 
         public ShortestPathSearcher(Graph graph, Node start, Node end, 
-            Action<string> logUpd, Action<Node, Brush> highlightNode, Action<Edge, Brush> highlightEdge)
+            Action<string> logUpd, Action<Node, Brush> highlightNode, Action<Edge, Brush> highlightEdge,
+            CancellationTokenSource cancellationToken)
         {
             _graph = graph;
             LogUpd = logUpd;
@@ -31,6 +35,7 @@ namespace GraphEditor
             HighlightEdge = highlightEdge;
             Start = start;
             End = end;
+            _cancellationTokenSource = cancellationToken;
         }
 
         public async Task Initialize()
@@ -85,6 +90,8 @@ namespace GraphEditor
                 HighlightNode(currentNode, Node.ActiveColorLvl1);
                 foreach (var neighbor in graph[currentNode])
                 {
+                    _cancellationTokenSource!.Token.ThrowIfCancellationRequested();
+
                     Edge chosenEdge;
                     Node neighbourNode = neighbor.Key;
                     double weight = neighbor.Value;

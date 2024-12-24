@@ -7,11 +7,11 @@
         mc:Ignorable="d"
         Title="GraphEditor" Height="600" Width="1200">
 
-    <Grid Margin="5">
+    <Grid >
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="0.7*"/>
+            <ColumnDefinition Width="0.8*"/>
             <ColumnDefinition Width="3*"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="1.5*"/>
         </Grid.ColumnDefinitions>
 
         <StackPanel Panel.ZIndex="1">
@@ -45,9 +45,7 @@
                         Height="30" Width="137" Click="ClearGraph_Click" Background="#FFF1F1F1" FontSize="14"/>
             </StackPanel>
 
-            <StackPanel Margin="5" VerticalAlignment="Bottom">
-                <Button x:Name="StartBtn" Content="Выполнить" HorizontalAlignment="Center" Margin="2" Cursor="Hand"
-                        Height="30" Width="137" Click="StartAlgorithm_Click" Background="#FFF1F1F1" FontSize="14"/>
+            <StackPanel Margin="5,10,5,10">
 
                 <ComboBox x:Name="Algorithms" SelectedIndex="0" Cursor="Hand" Height="30" FontSize="14">
                     <ComboBoxItem Content="Выберите действие"/>
@@ -58,6 +56,13 @@
                     <ComboBoxItem Content="Поиск кратчайшего пути"/>
                 </ComboBox>
             </StackPanel>
+            
+            <StackPanel Margin="5">
+                <Button x:Name="StartBtn" Content="Выполнить" HorizontalAlignment="Center" Margin="2" Cursor="Hand"
+                    Height="30" Width="137" Click="StartAlgorithm_Click" Background="#FFF1F1F1" FontSize="14"/>
+                <Button x:Name="CanselBtn" Content="Отменить" HorizontalAlignment="Center" Margin="2" Cursor="Hand"
+                    Height="30" Width="137" Click="Cansel_Click" Background="#FFF1F1F1" FontSize="14"/>
+            </StackPanel>
         </StackPanel>
 
         <Canvas x:Name="canva" Grid.Column="1" Background="White"
@@ -65,11 +70,10 @@
                 MouseMove="canvas_MouseMove"
                 MouseUp="canvas_MouseUp"/>
 
-        <Border  Grid.Column="2" BorderBrush="Black" BorderThickness="1">
-            <ScrollViewer>
-                <TextBlock x:Name="logTxt" Padding="5" TextWrapping="Wrap"/>
-            </ScrollViewer>
-        </Border>
+
+        <ScrollViewer Grid.Column="2" >
+            <TextBlock x:Name="logTxt" Padding="5" TextWrapping="Wrap" Background="White" FontSize="14"/>
+        </ScrollViewer>
 
         <Rectangle Grid.Column="0" Fill="#FFF1F1F1" Panel.ZIndex="0"></Rectangle>
     </Grid>
